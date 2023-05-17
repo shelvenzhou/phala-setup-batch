@@ -153,10 +153,18 @@ async function uploadCode(api, txqueue, pair, cert, clusterId, codeType, wasm, s
     console.log("Code uploaded")
 }
 
-async function instantiateContractTx(api, system, cert, clusterId, contract, salt) {
+async function instantiateContractTx(api, worker, system, pair, cert, clusterId, contract, salt) {
     salt = salt ? salt : hex(crypto.randomBytes(4));
 
-    console.log(`Instantiate code ${contract.metadata.source.hash}, input ${contract.constructor}, salt ${salt}`);
+    const { id: contractId } = await worker.api.calculateContractId({
+        deployer: hex(pair.publicKey),
+        clusterId,
+        codeHash: contract.metadata.source.hash,
+        salt,
+    });
+    contract.address = contractId;
+
+    console.log(`Instantiate code ${contract.metadata.source.hash}, input ${contract.constructor}, salt ${salt} to contract ${contractId}`);
     let estimatedFee = await estimateFee(api, system, cert, contract, salt);
     return api.tx.phalaPhatContracts.instantiateContract(
         { WasmCode: contract.metadata.source.hash },
@@ -260,41 +268,41 @@ async function main() {
     console.log(`Upload log_server.sidevm`)
     await uploadCode(api, txqueue, pairDeployer, certDeployer, clusterId, "SidevmCode", hex(logServerSidevmWasm), system);
 
-    // TX1: Batch instantiate contractTokenomic and contractSidevmop
-    let batchInstantiateTx = api.tx.utility.batchAll([
-        await instantiateContractTx(api, system, certDeployer, clusterId, contractTokenomic),
-        await instantiateContractTx(api, system, certDeployer, clusterId, contractSidevmop),
-    ]);
-    console.log(`Batch instantiate tx: ${batchInstantiateTx.toHex()}`);
-
-    // **CHECK THESE**
-    // To get the mapping between contract id and code hash, use:
-    // `curl -d'{"contracts":["0x9b4dde84b1f6e25184df9e45d9adb00dbc88b87c9b1d2d01965e6f4849ab5e36"]}' http://localhost:8000/prpc/PhactoryAPI.GetContractInfo\?json`
-    contractTokenomic.address = '0x9b4dde84b1f6e25184df9e45d9adb00dbc88b87c9b1d2d01965e6f4849ab5e36';
-    contractSidevmop.address = '0x90a1deab503ea628cd2084ccfe53a1c499979ff9e970cd47112bc64a2a0ea223';
-
-    // Allow the logger to deploy sidevm
-    const sidevmDeployer = await contractApi(api, pruntimeUrl, contractSidevmop);
-
-    let salt = hex(crypto.randomBytes(4));
-    const { id: loggerId } = await worker.api.calculateContractId({
-        deployer: hex(pairDeployer.publicKey),
-        clusterId,
-        codeHash: contractLogServer.metadata.source.hash,
-        salt,
-    });
-    console.log(`calculated loggerId = ${loggerId}`);
-
-    let batchAddDriverTx = api.tx.utility.batchAll([
+    // TX1: Batch setup contractTokenomic and contractSidevmop
+    let batchSetupTx = api.tx.utility.batchAll([
+        api.tx.phalaPhatTokenomic.adjustStake(systemContract, 50 * PHA), // stake for systemContract
+        await instantiateContractTx(api, worker, system, pairDeployer, certDeployer, clusterId, contractTokenomic),
+        await instantiateContractTx(api, worker, system, pairDeployer, certDeployer, clusterId, contractSidevmop),
         await systemSetDriverTx(system, certDeployer, "ContractDeposit", contractTokenomic),
         await systemGrantAdminTx(system, certDeployer, contractTokenomic),
         await systemSetDriverTx(system, certDeployer, "SidevmOperation", contractSidevmop),
         await systemGrantAdminTx(system, certDeployer, contractSidevmop),
-        api.tx.phalaPhatTokenomic.adjustStake(systemContract, 50 * PHA), // stake for systemContract
-        sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
-        await instantiateContractTx(api, system, certDeployer, clusterId, contractLogServer, salt)
+
     ]);
-    console.log(`Batch add driver tx: ${batchAddDriverTx.toHex()}`);
+    console.log(`Batch setup tx: ${batchSetupTx.toHex()}`);
+
+    // TX2: Batch setup logger
+    // **CHECK THESE**
+    contractSidevmop.address = '0x90a1deab503ea628cd2084ccfe53a1c499979ff9e970cd47112bc64a2a0ea223';
+    const sidevmDeployer = await contractApi(api, pruntimeUrl, contractSidevmop);
+
+    let loggerSalt = hex(crypto.randomBytes(4));
+    const { id: loggerId } = await worker.api.calculateContractId({
+        deployer: hex(pairDeployer.publicKey),
+        clusterId,
+        codeHash: contractLogServer.metadata.source.hash,
+        salt: loggerSalt,
+    });
+    console.log(`calculated loggerId = ${loggerId}`);
+    contractLogServer.address = loggerId;
+
+    let batchLoggerTx = api.tx.utility.batchAll([
+        await systemSetDriverTx(system, certDeployer, "PinkLogger", contractLogServer),
+        await systemGrantAdminTx(system, certDeployer, contractLogServer),
+        sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
+        await instantiateContractTx(api, worker, system, pairDeployer, certDeployer, clusterId, contractLogServer, loggerSalt)
+    ]);
+    console.log(`Batch init logger tx: ${batchLoggerTx.toHex()}`);
 }
 
 main().then(process.exit).catch(err => console.error('Crashed', err)).finally(() => process.exit(-1));

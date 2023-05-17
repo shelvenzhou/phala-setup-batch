@@ -11,28 +11,26 @@ that try to batch everything.
 // 2. transfer to cluster
 // 3. upload all contracts
 
-// Cluster owner only (since SidevmDeployer records its owner)
-batchAll {
-    api.tx.phalaPhatContracts.instantiateContract(contractTokenomics)
-    api.tx.phalaPhatContracts.instantiateContract(contractSidevmop)
-}
-
 // Cluster owner only
 batchAll {
+    api.tx.phalaPhatTokenomic.adjustStake(systemContract, CENTS * stakedCents) // stake for systemContract
+    api.tx.phalaPhatContracts.instantiateContract(contractTokenomics)
+    api.tx.phalaPhatContracts.instantiateContract(contractSidevmop)
     system.tx["system::setDriver"](options, "ContractDeposit", contractTokenomics.address)
     system.tx["system::grantAdmin"](options, contractTokenomics.address)
     system.tx["system::setDriver"](options, "SidevmOperation", contractSidevmop.address)
     system.tx["system::grantAdmin"](options, contractSidevmop.address)
-    api.tx.phalaPhatTokenomic.adjustStake(systemContract, CENTS * stakedCents) // stake for systemContract
-    sidevmDeployer.tx.allow(defaultTxConfig, loggerId)
-    api.tx.phalaPhatContracts.instantiateContract(LoggerServer)
 }
 
 // Cluster owner only
 batchAll {
-    system.tx["system::setDriver"](options, "PinkLogger", contract.address)
+    system.tx["system::setDriver"](options, "PinkLogger", contractLogger.address)
+    system.tx["system::grantAdmin"](options, contractLogger.address)
+    sidevmDeployer.tx.allow(defaultTxConfig, loggerId)
+    api.tx.phalaPhatContracts.instantiateContract(LoggerServer)
 }
 ```
+
 ## Checklist
 
 - [ ] it works using `batchAll` with normal account
