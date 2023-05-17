@@ -169,7 +169,7 @@ async function deployCluster(api, txqueue, sudoer, owner, workers, treasury, def
             owner,
             'Public', // can be {'OnlyOwner': accountId}
             workers,
-            "100000000000000", // 100 PHA
+            "10000000000000000", // 10000 PHA
             1, 1, 1, treasury.address
         )),
         sudoer
@@ -255,10 +255,10 @@ async function main() {
     console.log('Gatekeepers', gatekeepers);
 
     // Basic phala network setup
-    // for (const w of workers) {
-    //     await forceRegisterWorker(api, txqueue, sudo, w.pubkey);
-    //     await w.api.addEndpoint({ encodedEndpointType: [1], endpoint: w.url }); // EndpointType: 0 for I2P and 1 for HTTP
-    // }
+    for (const w of workers) {
+        await forceRegisterWorker(api, txqueue, sudo, w.pubkey);
+        await w.api.addEndpoint({ encodedEndpointType: [1], endpoint: w.url }); // EndpointType: 0 for I2P and 1 for HTTP
+    }
     for (const w of gatekeepers) {
         await forceRegisterWorker(api, txqueue, sudo, w.pubkey);
         await setupGatekeeper(api, txqueue, sudo, w.pubkey);

@@ -19,13 +19,25 @@ batchAll {
 
 // Cluster owner only
 batchAll {
-    api.tx.phalaPhatTokenomic.adjustStake(systemContract, CENTS * stakedCents) // stake for systemContract
     system.tx["system::setDriver"](options, "ContractDeposit", contractTokenomics.address)
     system.tx["system::setDriver"](options, "SidevmOperation", contractSidevmop.address)
+    api.tx.phalaPhatTokenomic.adjustStake(systemContract, CENTS * stakedCents) // stake for systemContract
     sidevmDeployer.tx.allow(defaultTxConfig, loggerId)
     api.tx.phalaPhatContracts.instantiateContract(LoggerServer)
 }
 
 // Cluster owner only
-system.tx["system::setDriver"](options, "PinkLogger", contract.address)
+batchAll {
+    system.tx["system::setDriver"](options, "PinkLogger", contract.address)
+}
 ```
+## Checklist
+
+- [ ] it works using `batchAll` with normal account
+  - [x] instantiate tokenomics and sidevm_deployer contracts
+  - [ ] set drivers and allow logger_server to start sidevm, then instantiate log_server
+  - [ ] set log driver
+- [ ] it works using `batchAll` with multisig account
+  - [x] instantiate tokenomics and sidevm_deployer contracts
+  - [ ] set drivers and allow logger_server to start sidevm, then instantiate log_server
+  - [ ] set log driver
