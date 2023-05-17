@@ -20,7 +20,9 @@ batchAll {
 // Cluster owner only
 batchAll {
     system.tx["system::setDriver"](options, "ContractDeposit", contractTokenomics.address)
+    system.tx["system::grantAdmin"](options, contractTokenomics.address)
     system.tx["system::setDriver"](options, "SidevmOperation", contractSidevmop.address)
+    system.tx["system::grantAdmin"](options, contractSidevmop.address)
     api.tx.phalaPhatTokenomic.adjustStake(systemContract, CENTS * stakedCents) // stake for systemContract
     sidevmDeployer.tx.allow(defaultTxConfig, loggerId)
     api.tx.phalaPhatContracts.instantiateContract(LoggerServer)

@@ -128,7 +128,7 @@ async function estimateFee(api, system, cert, contract, salt) {
     // console.log("InkMessageReturn", queryResult.Ok.InkMessageReturn);
     // const instantiateResult = api.createType('ContractInstantiateResult', queryResult.Ok.result);
     // console.assert(instantiateResult.result.isOk, 'fee estimation failed');
-    console.log(`estimateFee ${JSON.stringify(queryResult)}`);
+    console.log(`estimateFee ${JSON.stringify(queryResponse)}`);
     return instantiateReturn;
 }
 
@@ -278,7 +278,7 @@ async function main() {
 
     let salt = hex(crypto.randomBytes(4));
     const { id: loggerId } = await worker.api.calculateContractId({
-        pairDeployer: hex(pairDeployer.publicKey),
+        deployer: hex(pairDeployer.publicKey),
         clusterId,
         codeHash: contractLogServer.metadata.source.hash,
         salt,
@@ -292,7 +292,7 @@ async function main() {
         await systemGrantAdminTx(system, certDeployer, contractSidevmop),
         api.tx.phalaPhatTokenomic.adjustStake(systemContract, 50 * PHA), // stake for systemContract
         sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
-        // await instantiateContractTx(api, system, certDeployer, clusterId, contractLogServer, salt)
+        await instantiateContractTx(api, system, certDeployer, clusterId, contractLogServer, salt)
     ]);
     console.log(`Batch add driver tx: ${batchAddDriverTx.toHex()}`);
 }
