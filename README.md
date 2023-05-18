@@ -2,13 +2,19 @@
 
 that try to batch everything.
 
+## Attention
+
+1. Ensure your accounts have enough tokens and cluster balance;
+2. Ensure the `deployerPubkey` matches the account who instantiates the contracts, otherwise the calculated contract ids are wrong, and you will register wrong driver contracts;
+3. The estimated gas fee can be wrong if the test account does not have tokens on real mainnet, increase the value to ensure successful deployment.
+
 ## Solution
 
 ```js
 // Anyone
 // 0. register GK
 // 1. create cluster
-// 2. transfer to cluster
+// 2. transfer to cluster, both accounts who upload the code or instantiate the contracts are needed
 // 3. upload all contracts
 
 // Cluster owner only
@@ -30,6 +36,12 @@ batchAll {
     api.tx.phalaPhatContracts.instantiateContract(LoggerServer)
 }
 ```
+
+## Restrictions
+
+1. The contracts are not necessarily instantiated when you call `system::setDriver` or `system::grantAdmin`;
+2. The `sidevmDeployer::allow` must be called when the contractSidevmop is instantiated, that's why we have two batch transactions;
+3. You can only instantiate contractLogger after `sidevmDeployer::allow` call, since it starts sidevm in its constructor.
 
 ## Checklist
 
