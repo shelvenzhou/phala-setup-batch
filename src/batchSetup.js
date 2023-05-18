@@ -10,6 +10,12 @@ const { PRuntimeApi } = require('./utils/pruntime');
 const PHA = 1_000_000_000_000;
 const DEFAULT_TX_CONFIG = { gasLimit: "100000000000" };
 
+async function sleep(t) {
+    await new Promise(resolve => {
+        setTimeout(resolve, t);
+    });
+}
+
 function hex(b) {
     if (typeof b != "string") {
         b = Buffer.from(b).toString('hex');
@@ -100,7 +106,7 @@ function loadContractFile(contractFile) {
     return { wasm, metadata, constructor, name };
 }
 
-async function estimateFee(api, system, cert, contract, salt) {
+async function estimateFee(api, system, certAnyone, contract, salt) {
     // Estimate gas limit
     /*
         InkInstantiate {
@@ -120,7 +126,7 @@ async function estimateFee(api, system, cert, contract, salt) {
         deposit: 0,
         transfer: 0,
         estimating: true
-    }, cert);
+    }, certAnyone);
 
     // console.log("instantiate result:", instantiateReturn);
     const queryResponse = api.createType('InkResponse', instantiateReturn);
@@ -132,11 +138,11 @@ async function estimateFee(api, system, cert, contract, salt) {
     return instantiateReturn;
 }
 
-async function uploadCode(api, txqueue, pair, cert, clusterId, codeType, wasm, system) {
+async function uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, codeType, wasm, system) {
     let hash = blake2AsHex(wasm);
     console.log(`Upload ${codeType} ${hash}`);
     let type = codeType == "SidevmCode" ? 'Sidevm' : 'Ink';
-    const { output } = await system.query["system::codeExists"](cert, {}, hash, type);
+    const { output } = await system.query["system::codeExists"](certAnyone, {}, hash, type);
     if (output.asOk.toPrimitive()) {
         console.log("Code exists")
         return;
@@ -144,20 +150,20 @@ async function uploadCode(api, txqueue, pair, cert, clusterId, codeType, wasm, s
 
     await txqueue.submit(
         api.tx.phalaPhatContracts.clusterUploadResource(clusterId, codeType, wasm),
-        pair
+        pairAnyone
     );
     await checkUntil(async () => {
-        const { output } = await system.query["system::codeExists"](cert, {}, hash, type);
-        return output.asOk;
+        const { output } = await system.query["system::codeExists"](certAnyone, {}, hash, type);
+        return output.asOk.toPrimitive();
     }, 8 * 3000);
     console.log("Code uploaded")
 }
 
-async function instantiateContractTx(api, worker, system, pair, cert, clusterId, contract, salt) {
+async function instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contract, salt) {
     salt = salt ? salt : hex(crypto.randomBytes(4));
 
     const { id: contractId } = await worker.api.calculateContractId({
-        deployer: hex(pair.publicKey),
+        deployer: deployerPubkey,
         clusterId,
         codeHash: contract.metadata.source.hash,
         salt,
@@ -165,7 +171,7 @@ async function instantiateContractTx(api, worker, system, pair, cert, clusterId,
     contract.address = contractId;
 
     console.log(`Instantiate code ${contract.metadata.source.hash}, input ${contract.constructor}, salt ${salt} to contract ${contractId}`);
-    let estimatedFee = await estimateFee(api, system, cert, contract, salt);
+    let estimatedFee = await estimateFee(api, system, certAnyone, contract, salt);
     return api.tx.phalaPhatContracts.instantiateContract(
         { WasmCode: contract.metadata.source.hash },
         contract.constructor,
@@ -178,8 +184,8 @@ async function instantiateContractTx(api, worker, system, pair, cert, clusterId,
     );
 }
 
-async function systemSetDriverTx(system, cert, driverName, contract) {
-    const { gasRequired, storageDeposit } = await system.query["system::setDriver"](cert, {}, driverName, contract.address);
+async function systemSetDriverTx(system, certAnyone, driverName, contract) {
+    const { gasRequired, storageDeposit } = await system.query["system::setDriver"](certAnyone, {}, driverName, contract.address);
     let options = {
         value: 0,
         gasLimit: gasRequired,
@@ -189,8 +195,8 @@ async function systemSetDriverTx(system, cert, driverName, contract) {
     return system.tx["system::setDriver"](options, driverName, contract.address);
 }
 
-async function systemGrantAdminTx(system, cert, contract) {
-    const { gasRequired, storageDeposit } = await system.query["system::grantAdmin"](cert, {}, contract.address);
+async function systemGrantAdminTx(system, certAnyone, contract) {
+    const { gasRequired, storageDeposit } = await system.query["system::grantAdmin"](certAnyone, {}, contract.address);
     let options = {
         value: 0,
         gasLimit: gasRequired,
@@ -214,13 +220,20 @@ async function contractApi(api, pruntimeUrl, contract) {
 }
 
 async function main() {
-    // **CHECK THESE**
-    const nodeUrl = 'ws://localhost:9944';
-    const pruntimeUrl = 'http://localhost:8000';
-    // const nodeUrl = 'wss://phala.api.onfinality.io/public-ws';
-    // const pruntimeUrl = 'https://phat-cluster-de.phala.network/pruntime-01';
+    // **CHECK HERE**
+    // Local testnet
+    // const nodeUrl = 'ws://localhost:9944';
+    // const pruntimeUrl = 'http://localhost:8000';
+    // // my local multisig address: 41MjZJbhdQKaZjEqbsvHXKPyRs1qp8DVU4Pph7XfaMQeqGQ8
+    // const deployerPubkey = '0x20c0c9d3ce492b85c8848effafdbb1a782c589e9b87ff5e3f76a1c7fa41382db'
+    // let isTestnet = true;
 
-    const clusterId = '0x0000000000000000000000000000000000000000000000000000000000000001';
+    // Phala mainnet
+    const nodeUrl = 'wss://phala.api.onfinality.io/public-ws';
+    const pruntimeUrl = 'https://phat-cluster-de.phala.network/pruntime-01';
+    // Phala council address: 411YcLnTpRedPqFjFYLMFbxLMwnhjDXQvzV21gJLbp67T7Y4
+    const deployerPubkey = '0x115b06fd88601f903a94a70cdcedca7ed6b77fed4e0d4fda0a5511970ab4aa5d';
+    let isTestnet = false;
 
     const driversDir = './res';
     const contractSystem = loadContractFile(`${driversDir}/system.contract`);
@@ -229,6 +242,9 @@ async function main() {
     const contractTokenomic = loadContractFile(`${driversDir}/tokenomic.contract`);
     // const contractQjs = loadContractFile(`${driversDir}/qjs.contract`);
     const logServerSidevmWasm = fs.readFileSync(`${driversDir}/log_server.sidevm.wasm`, 'hex');
+
+    const clusterId = '0x0000000000000000000000000000000000000000000000000000000000000001';
+
 
     // Connect to node
     const wsProvider = new WsProvider(nodeUrl)
@@ -250,8 +266,8 @@ async function main() {
     }
 
     const keyring = new Keyring({ type: 'sr25519' });
-    const pairDeployer = keyring.addFromUri('//Alice');
-    const certDeployer = await Phala.signCertificate({ api, pair: pairDeployer });
+    const pairAnyone = keyring.addFromUri('//Alice');
+    const certAnyone = await Phala.signCertificate({ api, pair: pairAnyone });
 
     const clusterInfo = await api.query.phalaPhatContracts.clusters(clusterId);
     const systemContract = clusterInfo.unwrap().systemContract.toHex();
@@ -259,36 +275,45 @@ async function main() {
 
     const system = await contractApi(api, pruntimeUrl, contractSystem);
 
+    // tokens for code uploading
+    if (isTestnet) {
+        await txqueue.submit(api.tx.phalaPhatContracts.transferToCluster(1000 * PHA, clusterId, hex(pairAnyone.publicKey)), pairAnyone);
+        await checkUntil(async () => {
+            const { output } = await system.query["system::totalBalanceOf"](certAnyone, {}, hex(pairAnyone.publicKey));
+            return output.asOk.toPrimitive() > 0;
+        }, 8 * 3000);
+    }
+
     console.log(`Upload ${contractTokenomic.name}`)
-    await uploadCode(api, txqueue, pairDeployer, certDeployer, clusterId, "InkCode", contractTokenomic.wasm, system);
+    await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "InkCode", contractTokenomic.wasm, system);
     console.log(`Upload ${contractSidevmop.name}`)
-    await uploadCode(api, txqueue, pairDeployer, certDeployer, clusterId, "InkCode", contractSidevmop.wasm, system);
+    await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "InkCode", contractSidevmop.wasm, system);
     console.log(`Upload ${contractLogServer.name}`)
-    await uploadCode(api, txqueue, pairDeployer, certDeployer, clusterId, "InkCode", contractLogServer.wasm, system);
+    await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "InkCode", contractLogServer.wasm, system);
     console.log(`Upload log_server.sidevm`)
-    await uploadCode(api, txqueue, pairDeployer, certDeployer, clusterId, "SidevmCode", hex(logServerSidevmWasm), system);
+    await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "SidevmCode", hex(logServerSidevmWasm), system);
 
     // TX1: Batch setup contractTokenomic and contractSidevmop
     let batchSetupTx = api.tx.utility.batchAll([
         api.tx.phalaPhatTokenomic.adjustStake(systemContract, 50 * PHA), // stake for systemContract
-        await instantiateContractTx(api, worker, system, pairDeployer, certDeployer, clusterId, contractTokenomic),
-        await instantiateContractTx(api, worker, system, pairDeployer, certDeployer, clusterId, contractSidevmop),
-        await systemSetDriverTx(system, certDeployer, "ContractDeposit", contractTokenomic),
-        await systemGrantAdminTx(system, certDeployer, contractTokenomic),
-        await systemSetDriverTx(system, certDeployer, "SidevmOperation", contractSidevmop),
-        await systemGrantAdminTx(system, certDeployer, contractSidevmop),
+        await instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contractTokenomic),
+        await instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contractSidevmop),
+        await systemSetDriverTx(system, certAnyone, "ContractDeposit", contractTokenomic),
+        await systemGrantAdminTx(system, certAnyone, contractTokenomic),
+        await systemSetDriverTx(system, certAnyone, "SidevmOperation", contractSidevmop),
+        await systemGrantAdminTx(system, certAnyone, contractSidevmop),
 
     ]);
     console.log(`Batch setup tx: ${batchSetupTx.toHex()}`);
 
     // TX2: Batch setup logger
-    // **CHECK THESE**
-    contractSidevmop.address = '0x90a1deab503ea628cd2084ccfe53a1c499979ff9e970cd47112bc64a2a0ea223';
+    // **CHECK HERE**
+    contractSidevmop.address = '0x31695b1222c01cdc62ae3dc1d4ba43c658ec6218fc50f6f0695df0e13a10e931';
     const sidevmDeployer = await contractApi(api, pruntimeUrl, contractSidevmop);
 
     let loggerSalt = hex(crypto.randomBytes(4));
     const { id: loggerId } = await worker.api.calculateContractId({
-        deployer: hex(pairDeployer.publicKey),
+        deployer: deployerPubkey,
         clusterId,
         codeHash: contractLogServer.metadata.source.hash,
         salt: loggerSalt,
@@ -297,10 +322,10 @@ async function main() {
     contractLogServer.address = loggerId;
 
     let batchLoggerTx = api.tx.utility.batchAll([
-        await systemSetDriverTx(system, certDeployer, "PinkLogger", contractLogServer),
-        await systemGrantAdminTx(system, certDeployer, contractLogServer),
+        await systemSetDriverTx(system, certAnyone, "PinkLogger", contractLogServer),
+        await systemGrantAdminTx(system, certAnyone, contractLogServer),
         sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
-        await instantiateContractTx(api, worker, system, pairDeployer, certDeployer, clusterId, contractLogServer, loggerSalt)
+        await instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contractLogServer, loggerSalt)
     ]);
     console.log(`Batch init logger tx: ${batchLoggerTx.toHex()}`);
 }

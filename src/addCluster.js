@@ -209,6 +209,8 @@ async function main() {
     const sudoAccount = process.env.SUDO || '//Alice';
     const treasuryAccount = process.env.TREASURY || '//Treasury';
     const driversDir = process.env.DRIVERS_DIR || './res';
+    // my local multisig address: 41MjZJbhdQKaZjEqbsvHXKPyRs1qp8DVU4Pph7XfaMQeqGQ8
+    const deployerPubkey = '0x20c0c9d3ce492b85c8848effafdbb1a782c589e9b87ff5e3f76a1c7fa41382db'
 
     const contractSystem = loadContractFile(`${driversDir}/system.contract`);
 
@@ -267,7 +269,7 @@ async function main() {
     // Upload the pink-system wasm to the chain. It is required to create a cluster.
     await uploadSystemCode(api, txqueue, sudo, contractSystem.wasm);
 
-    const { clusterId, systemContract } = await deployCluster(api, txqueue, sudo, sudo.address, workers.map(w => w.pubkey), treasury);
+    const { clusterId, systemContract } = await deployCluster(api, txqueue, sudo, deployerPubkey, workers.map(w => w.pubkey), treasury);
     contractSystem.address = systemContract;
     console.log('Cluster system contract address:', systemContract);
 }
