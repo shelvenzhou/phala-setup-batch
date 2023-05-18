@@ -33,11 +33,9 @@ batchAll {
 
 ## Checklist
 
-- [ ] it works using `batchAll` with normal account
-  - [x] instantiate tokenomics and sidevm_deployer contracts
-  - [ ] set drivers and allow logger_server to start sidevm, then instantiate log_server
-  - [ ] set log driver
-- [ ] it works using `batchAll` with multisig account
-  - [x] instantiate tokenomics and sidevm_deployer contracts
-  - [ ] set drivers and allow logger_server to start sidevm, then instantiate log_server
-  - [ ] set log driver
+- [x] it works using `batchAll` with normal account
+  - [x] setup tokenomics and sidevm_deployer contracts
+  - [x] setup log driver
+- [x] it works using `batchAll` with multisig account
+  - [x] setup tokenomics and sidevm_deployer contracts
+  - [x] setup log driver
