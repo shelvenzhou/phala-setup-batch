@@ -22,4 +22,7 @@ const chainConfigs = {
     }
 };
 
-module.exports = { chainConfigs };
+const PHA = 1_000_000_000_000;
+const DEFAULT_TX_CONFIG = { gasLimit: "100000000000" };
+
+module.exports = { chainConfigs, PHA, DEFAULT_TX_CONFIG };
