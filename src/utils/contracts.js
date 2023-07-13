@@ -77,6 +77,11 @@ async function uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, codeT
     console.log("Code uploaded")
 }
 
+async function systemGetDriver(system, certAnyone, driver) {
+    const { output } = await system.query["system::getDriver"](certAnyone, {}, driver);
+    return output.asOk.toHex();
+}
+
 module.exports = {
-    contractApi, loadContractFile, estimateFee, uploadCode
+    contractApi, loadContractFile, estimateFee, uploadCode, systemGetDriver
 }
