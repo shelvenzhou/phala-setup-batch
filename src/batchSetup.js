@@ -6,6 +6,7 @@ const Phala = require('@phala/sdk');
 const fs = require('fs');
 const crypto = require('crypto');
 const { PRuntimeApi } = require('./utils/pruntime');
+const { chainConfigs } = require('./utils/constants');
 
 const PHA = 1_000_000_000_000;
 const DEFAULT_TX_CONFIG = { gasLimit: "100000000000" };
@@ -100,7 +101,7 @@ async function checkUntil(async_fn, timeout) {
 
 function loadContractFile(contractFile) {
     const metadata = JSON.parse(fs.readFileSync(contractFile));
-    const constructor = metadata.spec.constructors.find(c => c.label == 'default').selector;
+    const constructor = metadata.spec.constructors.find(c => c.label == 'default' || c.label == 'new').selector;
     const name = metadata.contract.name;
     const wasm = metadata.source.wasm;
     return { wasm, metadata, constructor, name };
@@ -221,19 +222,8 @@ async function contractApi(api, pruntimeUrl, contract) {
 
 async function main() {
     // **CHECK HERE**
-    // Local testnet
-    // const nodeUrl = 'ws://localhost:9944';
-    // const pruntimeUrl = 'http://localhost:8000';
-    // // my local multisig address: 41MjZJbhdQKaZjEqbsvHXKPyRs1qp8DVU4Pph7XfaMQeqGQ8
-    // const deployerPubkey = '0x20c0c9d3ce492b85c8848effafdbb1a782c589e9b87ff5e3f76a1c7fa41382db'
-    // let isTestnet = true;
-
-    // Phala mainnet
-    const nodeUrl = 'wss://phala.api.onfinality.io/public-ws';
-    const pruntimeUrl = 'https://phat-cluster-de.phala.network/pruntime-01';
-    // Phala council address: 411YcLnTpRedPqFjFYLMFbxLMwnhjDXQvzV21gJLbp67T7Y4
-    const deployerPubkey = '0x115b06fd88601f903a94a70cdcedca7ed6b77fed4e0d4fda0a5511970ab4aa5d';
-    let isTestnet = false;
+    const chainConfig = chainConfigs['mainnet'];
+    const clusterId = '0x0000000000000000000000000000000000000000000000000000000000000001';
 
     const driversDir = './res';
     const contractSystem = loadContractFile(`${driversDir}/system.contract`);
@@ -243,20 +233,20 @@ async function main() {
     // const contractQjs = loadContractFile(`${driversDir}/qjs.contract`);
     const logServerSidevmWasm = fs.readFileSync(`${driversDir}/log_server.sidevm.wasm`, 'hex');
 
-    const clusterId = '0x0000000000000000000000000000000000000000000000000000000000000001';
-
-
     // Connect to node
-    const wsProvider = new WsProvider(nodeUrl)
+    const wsProvider = new WsProvider(chainConfig.nodeUrl)
     const api = await ApiPromise.create({
-        provider: wsProvider, types: {
+        provider: wsProvider,
+        types: {
             ...Phala.types,
             ...typeDefinitions.contracts.types,
-        }
+        },
+        noInitWarn: true
     })
     const txqueue = new TxQueue(api);
 
     // Connect to pRuntime
+    let pruntimeUrl = chainConfig.pruntimeUrl;
     let pRuntimeApi = new PRuntimeApi(pruntimeUrl);
     let workerPubkey = hex((await pRuntimeApi.getInfo()).publicKey);
     const worker = {
@@ -276,7 +266,7 @@ async function main() {
     const system = await contractApi(api, pruntimeUrl, contractSystem);
 
     // tokens for code uploading
-    if (isTestnet) {
+    if (chainConfig.isTestnet) {
         await txqueue.submit(api.tx.phalaPhatContracts.transferToCluster(1000 * PHA, clusterId, hex(pairAnyone.publicKey)), pairAnyone);
         await checkUntil(async () => {
             const { output } = await system.query["system::totalBalanceOf"](certAnyone, {}, hex(pairAnyone.publicKey));
@@ -293,6 +283,7 @@ async function main() {
     console.log(`Upload log_server.sidevm`)
     await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "SidevmCode", hex(logServerSidevmWasm), system);
 
+    let deployerPubkey = chainConfig.deployerPubkey;
     // TX1: Batch setup contractTokenomic and contractSidevmop
     let batchSetupTx = api.tx.utility.batchAll([
         api.tx.phalaPhatTokenomic.adjustStake(systemContract, 50 * PHA), // stake for systemContract
