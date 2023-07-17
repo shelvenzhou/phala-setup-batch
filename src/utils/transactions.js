@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { estimateFee } = require('./contracts')
 const { hex } = require('./common')
+const { PHA } = require('./constants')
 
 class TxQueue {
     constructor(api) {
@@ -84,6 +85,14 @@ async function instantiateContractTx(api, worker, system, deployerPubkey, certAn
     );
 }
 
+async function transferToClusterTx(api, phaToken, clusterId, toAccount) {
+    return api.tx.phalaPhatContracts.transferToCluster(phaToken * PHA, clusterId, hex(toAccount));
+}
+
+async function adjustStakeTx(api, phaToken, toContract) {
+    return api.tx.phalaPhatTokenomic.adjustStake(toContract, phaToken * PHA);
+}
+
 async function systemSetDriverTx(system, certAnyone, driverName, contract) {
     const { gasRequired, storageDeposit } = await system.query["system::setDriver"](certAnyone, {}, driverName, contract.address);
     let options = {
@@ -118,5 +127,6 @@ async function stopLogServerTx(logServer, certAnyone) {
 }
 
 module.exports = {
-    TxQueue, instantiateContractTx, systemSetDriverTx, systemGrantAdminTx, stopLogServerTx
+    TxQueue, instantiateContractTx, transferToClusterTx, adjustStakeTx,
+    systemSetDriverTx, systemGrantAdminTx, stopLogServerTx
 }
