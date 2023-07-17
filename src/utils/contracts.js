@@ -2,6 +2,8 @@ const fs = require('fs');
 const Phala = require('@phala/sdk');
 const { ContractPromise } = require('@polkadot/api-contract');
 const { blake2AsHex } = require('@polkadot/util-crypto');
+const { checkUntil } = require('./common')
+
 
 async function contractApi(api, pruntimeUrl, contract) {
     const newApi = await api.clone().isReady;
@@ -79,6 +81,7 @@ async function uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, codeT
 
 async function systemGetDriver(system, certAnyone, driver) {
     const { output } = await system.query["system::getDriver"](certAnyone, {}, driver);
+    console.log(`Find driver ${driver} at ${output.asOk.toHex()}`);
     return output.asOk.toHex();
 }
 

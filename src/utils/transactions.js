@@ -106,6 +106,17 @@ async function systemGrantAdminTx(system, certAnyone, contract) {
     return system.tx["system::grantAdmin"](options, contract.address);
 }
 
+async function stopLogServerTx(logServer, certAnyone) {
+    const { gasRequired, storageDeposit } = await logServer.query["stop"](certAnyone, {});
+    let options = {
+        value: 0,
+        gasLimit: gasRequired,
+        storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
+    };
+
+    return logServer.tx["stop"](options);
+}
+
 module.exports = {
-    TxQueue, instantiateContractTx, systemSetDriverTx, systemGrantAdminTx
+    TxQueue, instantiateContractTx, systemSetDriverTx, systemGrantAdminTx, stopLogServerTx
 }

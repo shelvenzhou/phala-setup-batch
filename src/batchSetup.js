@@ -5,8 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { PRuntimeApi } = require('./utils/pruntime');
 const { chainConfigs, PHA, DEFAULT_TX_CONFIG } = require('./utils/constants');
-const { TxQueue, systemSetDriverTx, systemGrantAdminTx, instantiateContractTx } = require('./utils/transactions')
-const { contractApi, loadContractFile, uploadCode } = require('./utils/contracts')
+const { TxQueue, systemSetDriverTx, systemGrantAdminTx, instantiateContractTx, stopLogServerTx } = require('./utils/transactions')
+const { contractApi, loadContractFile, uploadCode, systemGetDriver } = require('./utils/contracts')
 const { hex, checkUntil } = require('./utils/common')
 
 async function main() {
@@ -18,6 +18,7 @@ async function main() {
     const contractSystem = loadContractFile(`${driversDir}/system.contract`);
     const contractSidevmop = loadContractFile(`${driversDir}/sidevm_deployer.contract`);
     const contractLogServer = loadContractFile(`${driversDir}/log_server.contract`);
+    const contractOldLogServer = loadContractFile(`${driversDir}/log_server.contract`);
     const contractTokenomic = loadContractFile(`${driversDir}/tokenomic.contract`);
     // const contractQjs = loadContractFile(`${driversDir}/qjs.contract`);
     const logServerSidevmWasm = fs.readFileSync(`${driversDir}/log_server.sidevm.wasm`, 'hex');
@@ -87,8 +88,7 @@ async function main() {
     console.log(`Batch setup tx: ${batchSetupTx.toHex()}`);
 
     // TX2: Batch setup logger
-    // **CHECK HERE**
-    contractSidevmop.address = '0x31695b1222c01cdc62ae3dc1d4ba43c658ec6218fc50f6f0695df0e13a10e931';
+    contractSidevmop.address = await systemGetDriver(system, certAnyone, "SidevmOperation");
     const sidevmDeployer = await contractApi(api, pruntimeUrl, contractSidevmop);
 
     let loggerSalt = hex(crypto.randomBytes(4));
@@ -101,7 +101,11 @@ async function main() {
     console.log(`calculated loggerId = ${loggerId}`);
     contractLogServer.address = loggerId;
 
+    contractOldLogServer.address = await systemGetDriver(system, certAnyone, "PinkLogger");
+    const oldLogServer = await contractApi(api, pruntimeUrl, contractOldLogServer);
+
     let batchLoggerTx = api.tx.utility.batchAll([
+        await stopLogServerTx(oldLogServer, certAnyone),
         await systemSetDriverTx(system, certAnyone, "PinkLogger", contractLogServer),
         await systemGrantAdminTx(system, certAnyone, contractLogServer),
         sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
