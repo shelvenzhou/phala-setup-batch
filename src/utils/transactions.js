@@ -79,7 +79,7 @@ async function instantiateContractTx(api, worker, system, deployerPubkey, certAn
         salt,
         clusterId,
         0,
-        estimatedFee.gasRequired.refTime,
+        estimatedFee.gasRequired.refTime * 10,
         estimatedFee.storageDeposit.asCharge || 0,
         0
     );
@@ -97,7 +97,7 @@ async function systemSetDriverTx(system, certAnyone, driverName, contract) {
     const { gasRequired, storageDeposit } = await system.query["system::setDriver"](certAnyone, {}, driverName, contract.address);
     let options = {
         value: 0,
-        gasLimit: gasRequired,
+        gasLimit: gasRequired.refTime * 10,
         storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
     };
 
@@ -108,7 +108,7 @@ async function systemGrantAdminTx(system, certAnyone, contract) {
     const { gasRequired, storageDeposit } = await system.query["system::grantAdmin"](certAnyone, {}, contract.address);
     let options = {
         value: 0,
-        gasLimit: gasRequired,
+        gasLimit: gasRequired.refTime * 10,
         storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
     };
 
@@ -119,7 +119,7 @@ async function stopLogServerTx(logServer, certAnyone) {
     const { gasRequired, storageDeposit } = await logServer.query["stop"](certAnyone, {});
     let options = {
         value: 0,
-        gasLimit: gasRequired,
+        gasLimit: gasRequired.refTime * 10,
         storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
     };
 
