@@ -15,7 +15,7 @@ const chainConfigs = {
     },
     'mainnet': {
         nodeUrl: 'wss://api.phala.network/ws',
-        pruntimeUrl: 'https://phat-cluster-de.phala.network/pruntime-03',
+        pruntimeUrl: 'https://phat-cluster-de.phala.network/pruntime-01',
         /// Phala council address: 411YcLnTpRedPqFjFYLMFbxLMwnhjDXQvzV21gJLbp67T7Y4
         deployerPubkey: '0x115b06fd88601f903a94a70cdcedca7ed6b77fed4e0d4fda0a5511970ab4aa5d',
         isTestnet: false,
