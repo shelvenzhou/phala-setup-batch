@@ -22,6 +22,7 @@ async function main() {
     const contractTokenomic = loadContractFile(`${driversDir}/tokenomic.contract`);
     // const contractQjs = loadContractFile(`${driversDir}/qjs.contract`);
     const logServerSidevmWasm = fs.readFileSync(`${driversDir}/log_server.sidevm.wasm`, 'hex');
+    const contractTagBag = loadContractFile(`${driversDir}/tagbag.contract`);
 
     // Connect to node
     const wsProvider = new WsProvider(chainConfig.nodeUrl)
@@ -72,6 +73,8 @@ async function main() {
     await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "InkCode", contractLogServer.wasm, system);
     console.log(`Upload log_server.sidevm`)
     await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "SidevmCode", hex(logServerSidevmWasm), system);
+    console.log(`Upload ${contractTagBag.name}`)
+    await uploadCode(api, txqueue, pairAnyone, certAnyone, clusterId, "InkCode", contractTagBag.wasm, system);
 
     let deployerPubkey = chainConfig.deployerPubkey;
     // TX1: Batch setup contractTokenomic and contractSidevmop
@@ -108,8 +111,12 @@ async function main() {
         await stopLogServerTx(oldLogServer, certAnyone),
         await systemSetDriverTx(system, certAnyone, "PinkLogger", contractLogServer),
         await systemGrantAdminTx(system, certAnyone, contractLogServer),
-        sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
-        await instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contractLogServer, loggerSalt)
+        // sidevmDeployer.tx.allow(DEFAULT_TX_CONFIG, loggerId),
+        // await instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contractLogServer, loggerSalt)
+        await instantiateContractTx(api, worker, system, deployerPubkey, certAnyone, clusterId, contractTagBag),
+        await systemSetDriverTx(system, certAnyone, "TagStack", contractTagBag),
+        await systemGrantAdminTx(system, certAnyone, contractTagBag),
+
     ]);
     console.log(`Batch init logger tx: ${batchLoggerTx.toHex()}`);
 }
