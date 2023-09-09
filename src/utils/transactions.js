@@ -126,7 +126,18 @@ async function stopLogServerTx(logServer, certAnyone) {
     return logServer.tx["stop"](options);
 }
 
+async function profileFactorySetCodeHash(profileFactory, certAnyone, codeHash) {
+    const { gasRequired, storageDeposit } = await profileFactory.query["setProfileCodeHash"](certAnyone, {}, codeHash);
+    let options = {
+        value: 0,
+        gasLimit: gasRequired.refTime * 10,
+        storageDepositLimit: storageDeposit.isCharge ? storageDeposit.asCharge : null
+    };
+
+    return profileFactory.tx["setProfileCodeHash"](options, codeHash);
+}
+
 module.exports = {
     TxQueue, instantiateContractTx, transferToClusterTx, adjustStakeTx,
-    systemSetDriverTx, systemGrantAdminTx, stopLogServerTx
+    systemSetDriverTx, systemGrantAdminTx, stopLogServerTx, profileFactorySetCodeHash
 }

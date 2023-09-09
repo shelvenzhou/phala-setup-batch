@@ -5,7 +5,7 @@ const Phala = require('@phala/sdk');
 const crypto = require('crypto');
 const { PRuntimeApi } = require('./utils/pruntime');
 const { chainConfigs } = require('./utils/constants');
-const { TxQueue, systemSetDriverTx } = require('./utils/transactions')
+const { TxQueue, profileFactorySetCodeHash } = require('./utils/transactions')
 const { contractApi, loadContractFile, estimateFee } = require('./utils/contracts')
 const { hex } = require('./utils/common')
 
@@ -34,10 +34,10 @@ async function main() {
     const txqueue = new TxQueue(api);
 
     // Connect to pRuntime
-    let pRuntimeApi = new PRuntimeApi(pruntimeUrl);
+    let pRuntimeApi = new PRuntimeApi(chainConfig.pruntimeUrl);
     let workerPubkey = hex((await pRuntimeApi.getInfo()).publicKey);
     const worker = {
-        url: pruntimeUrl,
+        url: chainConfig.pruntimeUrl,
         pubkey: workerPubkey,
         api: pRuntimeApi,
     }
@@ -50,7 +50,7 @@ async function main() {
     const systemContract = clusterInfo.unwrap().systemContract.toHex();
     contractSystem.address = systemContract;
 
-    const system = await contractApi(api, pruntimeUrl, contractSystem);
+    const system = await contractApi(api, chainConfig.pruntimeUrl, contractSystem);
 
     // Deploy BrickProfileFactory
     const abi = new Abi(contractBrickProfileFactory.metadata);
@@ -80,8 +80,8 @@ async function main() {
     console.log(`Batch tx: ${batchTx.toHex()}`);
 
     contractBrickProfileFactory.address = "0xb59bcc4ea352f3d878874d8f496fb093bdf362fa59d6e577c075f41cd7c84924";
-    const profileFactory = await contractApi(api, pruntimeUrl, contractBrickProfileFactory);
-    const profileCodeHash = "0x3b3d35f92494fe60d9f9f6139ea83964dc4bca84d7ac66e985024358c9c62969";
+    const profileFactory = await contractApi(api, chainConfig.pruntimeUrl, contractBrickProfileFactory);
+    const profileCodeHash = "0x27332bc5304f12851f8d48e50df26d6be4b2a2764dcd5b6fdbc9ba4158bc9c84";
     let tx = await profileFactorySetCodeHash(profileFactory, certAnyone, profileCodeHash);
     console.log(`Tx: ${tx.toHex()}`);
 
